@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
@@ -11,11 +11,32 @@ interface WeatherData {
   weather: { description: string }[];
 }
 
+const MAX_RECENT_SEARCHES = 5; // Maximum number of recent searches to show
+
 export default function WeatherApp() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [city, setCity] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    // Initialize from localStorage if available
+    const saved = localStorage.getItem("recentSearches");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save recent searches to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("recentSearches", JSON.stringify(recentSearches));
+  }, [recentSearches]);
+
+  const addToRecentSearches = (searchCity: string) => {
+    setRecentSearches((prev) => {
+      const filtered = prev.filter(
+        (item) => item.toLowerCase() !== searchCity.toLowerCase()
+      );
+      return [searchCity, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+    });
+  };
 
   const fetchWeather = async (searchCity: string) => {
     if (!searchCity.trim()) {
@@ -35,6 +56,7 @@ export default function WeatherApp() {
         },
       });
       setWeather(response.data);
+      addToRecentSearches(searchCity);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(
@@ -50,7 +72,29 @@ export default function WeatherApp() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!city.trim()) {
+      setError("Please enter a city name");
+      setCity("");
+      return;
+    }
     fetchWeather(city);
+  };
+
+  const handleRecentSearchClick = (searchCity: string) => {
+    setCity(searchCity);
+    fetchWeather(searchCity);
+  };
+
+  const handleDeleteSearch = (
+    searchCityToDelete: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation(); // Prevent triggering the search click
+    setRecentSearches((prev) =>
+      prev.filter(
+        (city) => city.toLowerCase() !== searchCityToDelete.toLowerCase()
+      )
+    );
   };
 
   const capitalizeWords = (str: string) => {
@@ -63,22 +107,53 @@ export default function WeatherApp() {
   return (
     <div className="weather-container">
       <form onSubmit={handleSearch}>
-        <input
-          type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="Search City"
-          className="search-input"
-        />
+        <div className="search-wrapper">
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Search City"
+            className={`search-input ${!city.trim() && "empty-input"}`}
+          />
+          <img src="/Search.png" alt="search" className="search-icon" />
+        </div>
       </form>
 
-      {error && <p className="text-red-500">{error}</p>}
+      { (
+        <div className="recent-searches">
+          <h3>Recent Searches</h3>
+          <div className="recent-searches-list">
+            {recentSearches.map((searchCity, index) => (
+              <button
+                key={index}
+                onClick={() => handleRecentSearchClick(searchCity)}
+                className="recent-search-item"
+              >
+                <span>{searchCity}</span>
+                <button
+                  className="delete-search"
+                  onClick={(e) => handleDeleteSearch(searchCity, e)}
+                  title="Remove from recent searches"
+                >
+                  ×
+                </button>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="error-message" key={error}>
+          {error}
+        </p>
+      )}
       {loading && (
         <div className="loader-container">
           <div className="loader"></div>
         </div>
       )}
-      {!loading && weather && (
+      {!loading && !error && weather && (
         <div className="weather-info">
           <h2>
             {weather.name}, {weather.sys.country}
