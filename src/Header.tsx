@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 const Header = () => {
-  const version = "1.0.0";
+  const version = "1.1.0";
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
