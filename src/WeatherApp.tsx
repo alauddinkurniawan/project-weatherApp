@@ -17,6 +17,10 @@ interface RecentCityWeather {
   description: string;
 }
 
+interface CachedWeatherData extends WeatherData {
+  timestamp: number;
+}
+
 const MAX_RECENT_SEARCHES = 5; // Maximum number of recent searches to show
 
 const DEFAULT_CITIES = ["Jakarta", "Tokyo", "Seoul", "Paris", "New York"];
@@ -30,6 +34,8 @@ type WeatherCondition =
   | "thunderstorm"
   | "mist"
   | "default";
+
+const CACHE_DURATION = 1000 * 60 * 10; // 10 minutes in milliseconds
 
 export default function WeatherApp() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -67,6 +73,32 @@ export default function WeatherApp() {
     setError(null);
 
     try {
+      // Check cache first
+      const cachedData = localStorage.getItem(
+        `weather_${searchCity.toLowerCase()}`
+      );
+      if (cachedData) {
+        const parsed: CachedWeatherData = JSON.parse(cachedData);
+        const now = Date.now();
+
+        // If cache is still valid
+        if (now - parsed.timestamp < CACHE_DURATION) {
+          setWeather(parsed);
+          setRecentWeatherData((prev) => ({
+            ...prev,
+            [searchCity.toLowerCase()]: {
+              city: searchCity,
+              temp: parsed.main.temp,
+              description: parsed.weather[0].description,
+            },
+          }));
+          addToRecentSearches(searchCity);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // If no cache or cache expired, fetch from API
       const response = await axios.get<WeatherData>(API_URL, {
         params: {
           q: searchCity,
@@ -74,6 +106,18 @@ export default function WeatherApp() {
           units: "metric",
         },
       });
+
+      const weatherWithTimestamp: CachedWeatherData = {
+        ...response.data,
+        timestamp: Date.now(),
+      };
+
+      // Save to cache
+      localStorage.setItem(
+        `weather_${searchCity.toLowerCase()}`,
+        JSON.stringify(weatherWithTimestamp)
+      );
+
       setWeather(response.data);
       setRecentWeatherData((prev) => ({
         ...prev,
@@ -97,7 +141,7 @@ export default function WeatherApp() {
     }
   }, []);
 
-  // Fetch weather for default cities on first load
+
   useEffect(() => {
     const saved = localStorage.getItem("recentSearches");
     if (!saved) {
@@ -132,6 +176,8 @@ export default function WeatherApp() {
     fetchWeather(searchCity);
   };
 
+
+  // just in case i decide to use this again
   // const handleDeleteSearch = (
   //   searchCityToDelete: string,
   //   e: React.MouseEvent
@@ -143,6 +189,8 @@ export default function WeatherApp() {
   //     )
   //   );
   // };
+
+  
 
   const capitalizeWords = (str: string) => {
     return str
@@ -200,6 +248,30 @@ export default function WeatherApp() {
     }
   }, [weather, currentWeatherCondition]);
 
+  const cleanupCache = () => {
+    const now = Date.now();
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("weather_")) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          const parsed: CachedWeatherData = JSON.parse(data);
+          if (now - parsed.timestamp > CACHE_DURATION) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    cleanupCache();
+    const interval = setInterval(cleanupCache, CACHE_DURATION);
+    return () => clearInterval(interval);
+  }, []);
+
+  const animationKey = Date.now();
+
   return (
     <div className="weather-container">
       <form onSubmit={handleSearch}>
@@ -215,8 +287,12 @@ export default function WeatherApp() {
         </div>
       </form>
 
-      {/* Add a static container with min-height */}
-      <div className="weather-info" style={{ minHeight: "150px" }}>
+      {/* Add animation-wrapper class */}
+      <div
+        className="weather-info animation-wrapper"
+        key={animationKey}
+        style={{ minHeight: "150px" }}
+      >
         {!loading && !error && weather && (
           <>
             <h2>
