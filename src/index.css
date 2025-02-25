@@ -12,6 +12,8 @@
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.5s ease-in-out;
   overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
 /* Weather-specific root backgrounds */
