@@ -19,7 +19,7 @@ interface RecentCityWeather {
 
 const MAX_RECENT_SEARCHES = 5; // Maximum number of recent searches to show
 
-const DEFAULT_CITIES = ["Jakarta", "Tokyo", "Seoul", "Paris"];
+const DEFAULT_CITIES = ["Jakarta", "Tokyo", "Seoul", "Paris", "New York"];
 
 // Add a type for weather conditions
 type WeatherCondition =
