@@ -11,6 +11,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.5s ease-in-out;
+  overflow: hidden;
 }
 
 /* Weather-specific root backgrounds */
